@@ -1,0 +1,188 @@
+{
+  "kind": "schematic.schema",
+  "version": 1,
+  "meta": {
+    "name": "orders",
+    "comment": "Sample order schema used to exercise the editor.",
+    "updatedAt": "2026-11-25T00:00:00.000Z"
+  },
+  "entities": [
+    {
+      "id": "ent_users",
+      "typeId": "table",
+      "name": "users",
+      "position": { "x": 40, "y": 48 },
+      "collapsed": false,
+      "comment": "Account records.",
+      "color": "",
+      "columns": [
+        {
+          "id": "col_users_id",
+          "name": "id",
+          "dataTypeId": "pg_uuid",
+          "key": "P",
+          "nullable": false,
+          "comment": "",
+          "defaultValue": "",
+          "unique": true,
+          "nested": null
+        },
+        {
+          "id": "col_users_email",
+          "name": "email",
+          "dataTypeId": "pg_citext",
+          "key": null,
+          "nullable": false,
+          "comment": "",
+          "defaultValue": "",
+          "unique": true,
+          "nested": null
+        },
+        {
+          "id": "col_users_profile",
+          "name": "profile",
+          "dataTypeId": "pg_jsonb",
+          "key": null,
+          "nullable": true,
+          "comment": "Nested document.",
+          "defaultValue": "",
+          "unique": false,
+          "nested": {
+            "kind": "object",
+            "fields": [
+              {
+                "id": "col_profile_name",
+                "name": "display_name",
+                "dataTypeId": "pg_text",
+                "key": null,
+                "nullable": false,
+                "comment": "",
+                "defaultValue": "",
+                "unique": false,
+                "nested": null
+              },
+              {
+                "id": "col_profile_tags",
+                "name": "tags",
+                "dataTypeId": "pg_jsonb",
+                "key": null,
+                "nullable": true,
+                "comment": "",
+                "defaultValue": "",
+                "unique": false,
+                "nested": {
+                  "kind": "array",
+                  "comment": "labels",
+                  "of": {
+                    "kind": "array",
+                    "comment": "nested array of text tokens",
+                    "of": null
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "indexes": [
+        {
+          "id": "idx_users_email",
+          "name": "users_email_idx",
+          "unique": true,
+          "columnIds": ["col_users_email"],
+          "comment": ""
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "id": "ent_orders",
+      "typeId": "table",
+      "name": "orders",
+      "position": { "x": 460, "y": 120 },
+      "collapsed": false,
+      "comment": "",
+      "color": "",
+      "columns": [
+        {
+          "id": "col_orders_id",
+          "name": "id",
+          "dataTypeId": "pg_uuid",
+          "key": "P",
+          "nullable": false,
+          "comment": "",
+          "defaultValue": "",
+          "unique": true,
+          "nested": null
+        },
+        {
+          "id": "col_orders_user",
+          "name": "user_id",
+          "dataTypeId": "pg_uuid",
+          "key": "F",
+          "nullable": false,
+          "comment": "",
+          "defaultValue": "",
+          "unique": false,
+          "nested": null
+        },
+        {
+          "id": "col_orders_note",
+          "name": "note",
+          "dataTypeId": "pg_text",
+          "key": "F",
+          "nullable": true,
+          "comment": "Nullable FK on purpose, to show the warning.",
+          "defaultValue": "",
+          "unique": false,
+          "nested": null
+        }
+      ],
+      "indexes": [],
+      "constraints": [
+        {
+          "id": "cst_orders_note",
+          "name": "orders_note_len",
+          "kind": "check",
+          "expression": "char_length(note) < 500",
+          "columnIds": ["col_orders_note"],
+          "comment": ""
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel_user_orders",
+      "sourceEntityId": "ent_users",
+      "sourceColumnId": "col_users_id",
+      "targetEntityId": "ent_orders",
+      "targetColumnId": "col_orders_user",
+      "cardinality": "zero-or-many",
+      "onDelete": "cascade",
+      "onUpdate": "cascade",
+      "comment": "A user has many orders.",
+      "routing": { "points": [], "manual": false }
+    },
+    {
+      "id": "rel_bad_pair",
+      "sourceEntityId": "ent_users",
+      "sourceColumnId": "col_users_email",
+      "targetEntityId": "ent_orders",
+      "targetColumnId": "col_orders_note",
+      "cardinality": "zero-or-one",
+      "onDelete": "",
+      "onUpdate": "",
+      "comment": "Invalid key pair, both ends should warn.",
+      "routing": { "points": [], "manual": false }
+    }
+  ],
+  "enums": [
+    {
+      "id": "enm_status",
+      "name": "order_status",
+      "values": ["draft", "placed", "shipped"],
+      "comment": ""
+    }
+  ]
+}

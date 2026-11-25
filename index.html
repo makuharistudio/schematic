@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCHEMATIC</title>
+  <link rel="stylesheet" href="source/style/app.css">
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0" aria-hidden="true">
+    <symbol id="mark-zero-one" viewBox="0 0 24 16">
+      <path d="M1 8h3" fill="none" stroke="currentColor"/>
+      <circle cx="8" cy="8" r="3.2" fill="none" stroke="currentColor"/>
+      <path d="M11.2 8h8" fill="none" stroke="currentColor"/>
+      <path d="M17 3v10" fill="none" stroke="currentColor"/>
+    </symbol>
+    <symbol id="mark-zero-many" viewBox="0 0 24 16">
+      <path d="M1 8h3" fill="none" stroke="currentColor"/>
+      <circle cx="8" cy="8" r="3.2" fill="none" stroke="currentColor"/>
+      <path d="M11.2 8h3" fill="none" stroke="currentColor"/>
+      <path d="M14.2 8 L22 3" fill="none" stroke="currentColor"/>
+      <path d="M14.2 8 L22 8" fill="none" stroke="currentColor"/>
+      <path d="M14.2 8 L22 13" fill="none" stroke="currentColor"/>
+    </symbol>
+    <symbol id="mark-only-one" viewBox="0 0 24 16">
+      <path d="M1 8h22" fill="none" stroke="currentColor"/>
+      <path d="M14 3v10" fill="none" stroke="currentColor"/>
+      <path d="M19 3v10" fill="none" stroke="currentColor"/>
+    </symbol>
+    <symbol id="mark-one-many" viewBox="0 0 24 16">
+      <path d="M1 8h13" fill="none" stroke="currentColor"/>
+      <path d="M12 3v10" fill="none" stroke="currentColor"/>
+      <path d="M14 8 L22 3" fill="none" stroke="currentColor"/>
+      <path d="M14 8 L22 8" fill="none" stroke="currentColor"/>
+      <path d="M14 8 L22 13" fill="none" stroke="currentColor"/>
+    </symbol>
+    <symbol id="mark-one" viewBox="0 0 24 16">
+      <path d="M1 8h22" fill="none" stroke="currentColor"/>
+      <path d="M18 3v10" fill="none" stroke="currentColor"/>
+    </symbol>
+    <symbol id="ico-plus" viewBox="0 0 12 12"><path d="M6 1.5v9M1.5 6h9" fill="none" stroke="currentColor"/></symbol>
+    <symbol id="ico-info" viewBox="0 0 12 12">
+      <circle cx="6" cy="6" r="4.4" fill="none" stroke="currentColor"/>
+      <path d="M6 5.2v3.2M6 3.4h.01" fill="none" stroke="currentColor"/>
+    </symbol>
+    <symbol id="ico-collapse" viewBox="0 0 12 12"><path d="M2 4.5h8M2 7.5h8" fill="none" stroke="currentColor"/></symbol>
+    <symbol id="ico-expand" viewBox="0 0 12 12"><path d="M2 3h8M2 6h8M2 9h8" fill="none" stroke="currentColor"/></symbol>
+  </svg>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand" id="brand">SCHEMATIC</div>
+      <button type="button" class="tb-btn" id="btn-new">New</button>
+      <button type="button" class="tb-btn" id="btn-load">Load</button>
+      <button type="button" class="tb-btn" id="btn-save">Save</button>
+      <button type="button" class="tb-btn" id="btn-save-as">Save as</button>
+      <button type="button" class="tb-btn" id="btn-export">Export JSON</button>
+      <button type="button" class="tb-btn" id="btn-prompt">Export as prompt</button>
+      <button type="button" class="tb-btn" id="btn-undo">Undo</button>
+      <button type="button" class="tb-btn" id="btn-redo">Redo</button>
+      <div class="cluster-right">
+      <button type="button" class="card-btn" id="btn-select" title="Select">SEL</button>
+      <button type="button" class="card-btn" id="card-zero-or-one" title="zero or one">
+        <svg viewBox="0 0 24 16"><use href="#mark-zero-one"></use></svg>
+      </button>
+      <button type="button" class="card-btn" id="card-zero-or-many" title="zero or many">
+        <svg viewBox="0 0 24 16"><use href="#mark-zero-many"></use></svg>
+      </button>
+      <button type="button" class="card-btn" id="card-only-one" title="only one">
+        <svg viewBox="0 0 24 16"><use href="#mark-only-one"></use></svg>
+      </button>
+      <button type="button" class="card-btn" id="card-one-or-many" title="one or many">
+        <svg viewBox="0 0 24 16"><use href="#mark-one-many"></use></svg>
+      </button>
+      <label class="zoom-field" id="zoom-field">
+        <input id="zoom-input" class="zoom-input" inputmode="numeric" aria-label="Zoom percent" value="100">
+        <span class="zoom-suffix" aria-hidden="true">%</span>
+      </label>
+      <button type="button" class="tb-btn" id="btn-zoom-out" title="Zoom out">−</button>
+      <button type="button" class="tb-btn" id="btn-zoom-in" title="Zoom in">+</button>
+      <button type="button" class="tb-btn" id="btn-fit" title="Fit to screen">Fit</button>
+      <button type="button" class="tb-btn" id="btn-minimap" title="Toggle minimap">Map</button>
+      <button type="button" class="tb-btn gear-btn" id="btn-settings" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 12 12" aria-hidden="true">
+          <circle cx="6" cy="6" r="2.05"></circle>
+          <path d="M6 3.15v1.05M6 7.8v1.05M3.15 6h1.05M7.8 6h1.05M3.95 3.95l.75.75M7.3 7.3l.75.75M8.05 3.95l-.75.75M4.7 7.3l-.75.75"></path>
+        </svg>
+      </button>
+      <div class="file-name" id="file-name">untitled.schematic.json</div>
+      </div>
+    </header>
+    <main class="workspace">
+      <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="inline" class="inline-editor hidden"></div>
+      <div id="minimap" class="minimap" title="Minimap"></div>
+      <div id="toast" class="toast hidden"></div>
+    </main>
+    <footer class="statusbar">
+      <div class="stat" id="stat-sel">selection: <strong>none</strong></div>
+      <div class="stat" id="stat-file">memory</div>
+      <div class="stat" id="stat-mode" data-i18n="status.ready">ready</div>
+      <div class="cluster-right">
+      <div class="stat" id="stat-help">zoom [scrollwheel] · pan [drag grid] or [space + drag] · relation [1] [2] [3] [4] · delete [del]</div>
+      </div>
+    </footer>
+  </div>
+  <div id="menu" class="menu hidden" role="menu"></div>
+  <div id="overlay" class="overlay hidden"></div>
+  <script type="module" src="source/dist/main.js"></script>
+</body>
+</html>

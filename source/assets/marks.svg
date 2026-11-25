@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="mark-zero-one" viewBox="0 0 24 16">
+    <path d="M1 8h3"/>
+    <circle cx="8" cy="8" r="3.2" fill="none"/>
+    <path d="M11.2 8h8"/>
+    <path d="M17 3v10"/>
+  </symbol>
+  <symbol id="mark-zero-many" viewBox="0 0 24 16">
+    <path d="M1 8h3"/>
+    <circle cx="8" cy="8" r="3.2" fill="none"/>
+    <path d="M11.2 8h3"/>
+    <path d="M14.2 8 L22 3"/>
+    <path d="M14.2 8 L22 8"/>
+    <path d="M14.2 8 L22 13"/>
+  </symbol>
+  <symbol id="mark-only-one" viewBox="0 0 24 16">
+    <path d="M1 8h22"/>
+    <path d="M14 3v10"/>
+    <path d="M19 3v10"/>
+  </symbol>
+  <symbol id="mark-one-many" viewBox="0 0 24 16">
+    <path d="M1 8h13"/>
+    <path d="M12 3v10"/>
+    <path d="M14 8 L22 3"/>
+    <path d="M14 8 L22 8"/>
+    <path d="M14 8 L22 13"/>
+  </symbol>
+  <symbol id="mark-one" viewBox="0 0 24 16">
+    <path d="M1 8h22"/>
+    <path d="M18 3v10"/>
+  </symbol>
+  <symbol id="ico-plus" viewBox="0 0 12 12">
+    <path d="M6 1.5v9M1.5 6h9"/>
+  </symbol>
+  <symbol id="ico-minus" viewBox="0 0 12 12">
+    <path d="M1.5 6h9"/>
+  </symbol>
+  <symbol id="ico-info" viewBox="0 0 12 12">
+    <circle cx="6" cy="6" r="4.4" fill="none"/>
+    <path d="M6 5.2v3.2"/>
+    <path d="M6 3.4h.01"/>
+  </symbol>
+  <symbol id="ico-collapse" viewBox="0 0 12 12">
+    <path d="M2 4.5h8M2 7.5h8"/>
+  </symbol>
+  <symbol id="ico-expand" viewBox="0 0 12 12">
+    <path d="M2 3h8M2 6h8M2 9h8"/>
+  </symbol>
+  <symbol id="ico-fit" viewBox="0 0 12 12">
+    <path d="M1.5 4V1.5H4M8 1.5h2.5V4M10.5 8v2.5H8M4 10.5H1.5V8"/>
+  </symbol>
+  <symbol id="ico-gear" viewBox="0 0 12 12">
+    <circle cx="6" cy="6" r="1.6" fill="none"/>
+    <path d="M6 1.2v1.4M6 9.4v1.4M1.2 6h1.4M9.4 6h1.4M2.6 2.6l1 1M8.4 8.4l1 1M9.4 2.6l-1 1M3.6 8.4l-1 1"/>
+  </symbol>
+</svg>

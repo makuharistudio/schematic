@@ -1,0 +1,12 @@
+{
+  "kind": "schematic.schema",
+  "version": 1,
+  "meta": {
+    "name": "untitled",
+    "comment": "",
+    "updatedAt": ""
+  },
+  "entities": [],
+  "relations": [],
+  "enums": []
+}
