@@ -21,6 +21,7 @@ The page loads the compiled modules in `source/dist/`. A browser can open `index
 4. Clone the repository and preview Schematic
    ```
    mkdir -p ~/Projects
+   git clone git@github.com:makuharistudio/schematic.git   <-- use this if you already have SSH setup
    git clone https://github.com/makuharistudio/schematic.git
    cd schematic
    python3 -m http.server 8753
