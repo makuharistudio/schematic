@@ -3,16 +3,18 @@ import { catalog } from "./catalog.js";
 import { applyLanguage, currentLanguage, installLanguages, languageChoices, loadLanguages, onLanguageChange, t } from "./i18n.js";
 import { ensurePermission, downloadText, pickOpen, pickSave, readHandle, recallHandle, rememberHandle, schemaFileName, serialize, settingsFileName, writeHandle } from "./files.js";
 import { anchorsFor, cardinalityMark, entityHeight, hitDistance, NODE_W, outward, pointsToPath, routePath, rowCenterY, ROW_H, HEADER_H } from "./geometry.js";
+import { applyLayout, captureActive, dropEntity, ensureLayouts, noteEntity, resetLayout } from "./layout.js";
 import { History } from "./history.js";
 import { clone, uid } from "./ids.js";
 import { schemaToPrompt } from "./prompt.js";
-import { CARDINALITIES, CARDINALITY_LABEL, CONSTRAINT_KINDS } from "./types.js";
-import type { Cardinality, ConstraintKind, EdgeRouting, Entity, Field, NestedNode, Relation, SchemaDoc, SettingsDoc, ThemeId } from "./types.js";
+import { CARDINALITIES, CARDINALITY_LABEL, CONSTRAINT_KINDS, LAYOUT_IDS } from "./types.js";
+import type { Cardinality, ConstraintKind, EdgeRouting, Entity, Field, LayoutId, NestedNode, Relation, SchemaDoc, SettingsDoc, ThemeId } from "./types.js";
 import { parseSchema, parseSettings, FormatError } from "./validate.js";
 import { columnKey, computeWarnings } from "./warnings.js";
 
 const SETTINGS_KEY = "schematic.settings.v1";
 const VIEW_KEY = "schematic.view.v1";
+const GRID_STEP = 32;
 
 type Tool = "select" | Cardinality;
 type MenuItem = { id: string; label: string; hint?: string; danger?: boolean } | { sep: true } | { label: string };
@@ -76,6 +78,12 @@ const app = {
   toastTimer: 0,
   pointers: new Map<number, TouchPoint>(),
   pinch: null as PinchState | null,
+  /**
+   * Post-reset document. While set, layout switches are not history entries.
+   * Undo restores the pre-reset document; redo restores this snapshot, so a
+   * switch away and back does not swallow the reset.
+   */
+  layoutReset: null as SchemaDoc | null,
 };
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -155,8 +163,13 @@ function applyStaticLabels(): void {
   labelButton("btn-save-as", "action.saveAs");
   labelButton("btn-export", "action.exportJson");
   labelButton("btn-prompt", "action.exportPrompt");
+  labelButton("btn-layout-reset", "action.resetLayout");
   labelButton("btn-undo", "action.undo");
   labelButton("btn-redo", "action.redo");
+  $("layout-select").setAttribute("aria-label", t("action.layout"));
+  fillLayoutSelect();
+  labelButton("btn-grid", "action.grid");
+  labelButton("btn-snap", "action.snap");
   labelButton("btn-select", "action.select");
   labelButton("btn-fit", "action.fit");
   labelButton("btn-minimap", "action.map");
@@ -166,6 +179,8 @@ function applyStaticLabels(): void {
   $("btn-zoom-in").title = t("zoom.in");
   $("btn-fit").title = t("zoom.fit");
   $("btn-minimap").title = t("zoom.minimap");
+  $("btn-grid").title = t("zoom.grid");
+  $("btn-snap").title = t("zoom.snap");
   $("card-zero-or-one").title = t("card.zeroOrOne");
   $("card-zero-or-many").title = t("card.zeroOrMany");
   $("card-only-one").title = t("card.onlyOne");
@@ -181,6 +196,20 @@ function labelButton(id: string, key: string): void {
   button.textContent = t(key);
 }
 
+function fillLayoutSelect(): void {
+  const select = $<HTMLSelectElement>("layout-select");
+  const current = select.value;
+  select.replaceChildren();
+  for (const id of LAYOUT_IDS) {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = t(`layout.${id}`);
+    select.append(option);
+  }
+  const active = app.doc.activeLayout ?? "Custom";
+  select.value = LAYOUT_IDS.includes(current as LayoutId) ? current : active;
+}
+
 function displayName(kind: "db" | "entity" | "entityPlural", id: string, fallback: string): string {
   const key = kind === "db" ? `db.${id}` : kind === "entity" ? `entity.${id}` : `entity.${id}.plural`;
   const value = t(key);
@@ -194,6 +223,12 @@ function bindChrome(): void {
   $("btn-save-as").onclick = () => void saveSchema(true);
   $("btn-export").onclick = () => exportJson();
   $("btn-prompt").onclick = () => openPrompt();
+  $<HTMLSelectElement>("layout-select").onchange = () => {
+    const id = $<HTMLSelectElement>("layout-select").value as LayoutId;
+    if (!LAYOUT_IDS.includes(id) || id === (app.doc.activeLayout ?? "Custom")) return;
+    switchLayout(id);
+  };
+  $("btn-layout-reset").onclick = () => resetActiveLayout();
   $("btn-undo").onclick = () => undo();
   $("btn-redo").onclick = () => redo();
   $("btn-settings").onclick = () => openSettings();
@@ -212,6 +247,14 @@ function bindChrome(): void {
   zoomInput.addEventListener("focus", () => zoomInput.select());
   $("btn-minimap").onclick = () => {
     app.settings.ui.showMinimap = !app.settings.ui.showMinimap;
+    saveSettings();
+  };
+  $("btn-grid").onclick = () => {
+    app.settings.ui.showGrid = !app.settings.ui.showGrid;
+    saveSettings();
+  };
+  $("btn-snap").onclick = () => {
+    app.settings.ui.snapToGrid = !app.settings.ui.snapToGrid;
     saveSettings();
   };
   for (const card of CARDINALITIES) {
@@ -464,14 +507,20 @@ function onPointerMove(ev: PointerEvent): void {
   const dx = world.x - app.drag.px;
   const dy = world.y - app.drag.py;
   if (Math.hypot(dx, dy) > 1) app.drag.moved = true;
+  const snap = app.settings.ui.snapToGrid;
   for (const id of app.drag.ids) {
     const entity = app.doc.entities.find((e) => e.id === id);
     const origin = app.drag.origin.get(id);
     if (!entity || !origin) continue;
-    entity.position.x = origin.x + dx;
-    entity.position.y = origin.y + dy;
+    entity.position.x = snap ? snapCoord(origin.x + dx) : origin.x + dx;
+    entity.position.y = snap ? snapCoord(origin.y + dy) : origin.y + dy;
+    noteEntity(app.doc, entity);
   }
   renderCanvas();
+}
+
+function snapCoord(value: number): number {
+  return Math.round(value / GRID_STEP) * GRID_STEP;
 }
 
 function onPointerUp(ev: PointerEvent): void {
@@ -480,6 +529,7 @@ function onPointerUp(ev: PointerEvent): void {
   if (stage.hasPointerCapture(ev.pointerId)) stage.releasePointerCapture(ev.pointerId);
   stage.classList.remove("panning");
   if (app.drag?.kind === "entity" && app.drag.moved) {
+    app.layoutReset = null;
     app.history.pushBefore(app.drag.before);
     markDirty();
   } else if (app.drag?.kind === "entity" && app.drag.edit) {
@@ -560,6 +610,7 @@ function runMenu(id: string, world: { x: number; y: number }, hit: ReturnType<ty
     mutate((doc) => {
       const entity = makeEntity(typeId, app.settings.dataTypes[0]?.id ?? "", world, uniqueName(doc, (type?.name ?? "entity").toLowerCase()));
       doc.entities.push(entity);
+      noteEntity(doc, entity);
       app.selected = new Set([entity.id]);
     });
     return;
@@ -627,6 +678,7 @@ function runMenu(id: string, world: { x: number; y: number }, hit: ReturnType<ty
       copy.position = { x: entity.position.x + 28, y: entity.position.y + 28 };
       copy.columns = copy.columns.map((c) => ({ ...c, id: uid("col"), nested: remapNested(c.nested) }));
       doc.entities.push(copy);
+      noteEntity(doc, copy);
       app.selected = new Set([copy.id]);
     });
     return;
@@ -747,11 +799,41 @@ function pickRelationEnd(entityId: string, columnId: string): void {
 }
 
 function mutate(fn: (doc: SchemaDoc) => void): void {
+  app.layoutReset = null;
   const before = clone(app.doc);
   fn(app.doc);
+  syncActivePositions();
   app.doc.meta.updatedAt = new Date().toISOString();
   app.history.pushBefore(before);
   markDirty();
+  render();
+}
+
+function syncActivePositions(): void {
+  captureActive(app.doc);
+}
+
+function switchLayout(id: LayoutId): void {
+  const before = clone(app.doc);
+  applyLayout(app.doc, id);
+  app.doc.meta.updatedAt = new Date().toISOString();
+  // A bare switch must not bury a reset. Undo of that reset still returns here.
+  if (!app.layoutReset) app.history.pushBefore(before);
+  markDirty();
+  setStatus("status.layout", { layout: `layout.${id}` });
+  render();
+}
+
+function resetActiveLayout(): void {
+  const id = app.doc.activeLayout ?? "Custom";
+  if (id === "Custom") return;
+  const before = clone(app.doc);
+  resetLayout(app.doc, id);
+  app.doc.meta.updatedAt = new Date().toISOString();
+  app.history.pushBefore(before);
+  app.layoutReset = clone(app.doc);
+  markDirty();
+  setStatus("status.layoutReset", { layout: `layout.${id}` });
   render();
 }
 
@@ -785,17 +867,24 @@ async function autosave(): Promise<void> {
 }
 
 function undo(): void {
-  const prev = app.history.undo(app.doc);
+  // After a reset, switches are not on the stack. Replay undo against the
+  // post-reset snapshot so redo puts that reset back, not the later switch.
+  const live = app.layoutReset ?? app.doc;
+  app.layoutReset = null;
+  const prev = app.history.undo(live);
   if (!prev) return;
   app.doc = prev;
+  ensureLayouts(app.doc);
   markDirty();
   render();
 }
 
 function redo(): void {
+  app.layoutReset = null;
   const next = app.history.redo(app.doc);
   if (!next) return;
   app.doc = next;
+  ensureLayouts(app.doc);
   markDirty();
   render();
 }
@@ -817,6 +906,7 @@ function deleteSelected(): void {
       if (ids.has(entity.id)) for (const column of entity.columns) colIds.add(column.id);
     }
     doc.entities = doc.entities.filter((e) => !ids.has(e.id));
+    for (const id of ids) dropEntity(doc, id);
     doc.relations = doc.relations.filter(
       (r) => !ids.has(r.sourceEntityId) && !ids.has(r.targetEntityId) && !colIds.has(r.sourceColumnId) && !colIds.has(r.targetColumnId),
     );
@@ -901,6 +991,8 @@ function isTyping(target: EventTarget | null): boolean {
 async function newSchema(): Promise<void> {
   if (app.dirty && !window.confirm(t("confirm.discardNew"))) return;
   app.doc = emptySchema();
+  ensureLayouts(app.doc);
+  app.layoutReset = null;
   app.history.reset();
   app.handle = null;
   app.fileLabel = "untitled.schematic.json";
@@ -929,6 +1021,8 @@ function adoptText(text: string, name: string, handle: FileSystemFileHandle | nu
       return;
     }
     app.doc = parseSchema(parsed);
+    ensureLayouts(app.doc);
+    app.layoutReset = null;
     app.history.reset();
     app.handle = handle;
     app.fileLabel = name;
@@ -1067,7 +1161,7 @@ function setStatus(key: string, vars: Record<string, string | number> = {}): voi
 function statusText(): string {
   const vars: Record<string, string | number> = {};
   for (const [name, value] of Object.entries(app.statusVars)) {
-    vars[name] = typeof value === "string" && value.startsWith("card.") ? t(value) : value;
+    vars[name] = typeof value === "string" && (value.startsWith("card.") || value.startsWith("layout.")) ? t(value) : value;
   }
   return t(app.statusKey, vars);
 }
@@ -1085,12 +1179,20 @@ function renderChrome(): void {
   $("stat-mode").textContent = statusText();
   $("btn-undo").toggleAttribute("disabled", !app.history.canUndo());
   $("btn-redo").toggleAttribute("disabled", !app.history.canRedo());
+  const layout = app.doc.activeLayout ?? "Custom";
+  const layoutSelect = $<HTMLSelectElement>("layout-select");
+  if (layoutSelect.value !== layout) layoutSelect.value = layout;
+  $("btn-layout-reset").toggleAttribute("disabled", layout === "Custom");
   $("btn-select").classList.toggle("active", app.tool === "select");
   for (const card of CARDINALITIES) {
     $(`card-${card}`).classList.toggle("active", app.tool === card);
   }
   $("btn-minimap").classList.toggle("active", app.settings.ui.showMinimap);
   $("minimap").classList.toggle("hidden", !app.settings.ui.showMinimap);
+  $("btn-grid").classList.toggle("active", app.settings.ui.showGrid);
+  $("btn-grid").setAttribute("aria-pressed", String(app.settings.ui.showGrid));
+  $("btn-snap").classList.toggle("active", app.settings.ui.snapToGrid);
+  $("btn-snap").setAttribute("aria-pressed", String(app.settings.ui.snapToGrid));
 }
 
 function describeSelection(): string {
@@ -1120,7 +1222,7 @@ function renderCanvas(): void {
   stage.replaceChildren();
   stage.classList.toggle("rel-arm", app.tool !== "select");
   const world = svgEl("g", { transform: `translate(${app.view.x} ${app.view.y}) scale(${app.view.zoom})` });
-  world.append(grid());
+  if (app.settings.ui.showGrid) world.append(grid());
   const warnings = computeWarnings(app.doc);
   for (const entity of app.doc.entities) world.append(drawEntity(entity, warnings));
   for (const relation of app.doc.relations) world.append(drawRelation(relation, warnings));
@@ -1130,7 +1232,7 @@ function renderCanvas(): void {
 
 function grid(): SVGElement {
   const g = svgEl("g", { opacity: "0.35" });
-  const step = 32;
+  const step = GRID_STEP;
   const rect = $("stage").getBoundingClientRect();
   const x0 = Math.floor(-app.view.x / app.view.zoom / step) * step - step;
   const y0 = Math.floor(-app.view.y / app.view.zoom / step) * step - step;
@@ -1152,13 +1254,16 @@ function drawRelation(relation: Relation, _warnings: ReturnType<typeof computeWa
   const style = app.settings.ui.edgeRouting;
   const d = pointsToPath(points, style);
   const selected = app.selectedRel === relation.id;
+  const stroke = selected ? "var(--rel-select)" : "var(--rel)";
   const hit = svgEl("path", { d, fill: "none", stroke: "transparent", "stroke-width": 10 });
   const line = svgEl("path", {
     d,
     fill: "none",
-    stroke: "var(--ink)",
-    "stroke-width": selected ? 1.8 : 1.25,
+    stroke,
+    "stroke-width": selected ? 2.25 : 1.25,
+    "stroke-linecap": "square",
   });
+  if (selected) g.classList.add("rel-selected");
   g.append(hit, line);
   const source = app.doc.entities.find((e) => e.id === relation.sourceEntityId);
   const target = app.doc.entities.find((e) => e.id === relation.targetEntityId);
@@ -1173,9 +1278,9 @@ function drawRelation(relation: Relation, _warnings: ReturnType<typeof computeWa
     );
     const srcDir = outward(pair.source);
     const tgtDir = outward(pair.target);
-    g.append(markAt({ x: points[0].x + srcDir * 14, y: points[0].y }, "one", srcDir));
+    g.append(markAt({ x: points[0].x + srcDir * 14, y: points[0].y }, "one", srcDir, stroke, selected));
     const end = points[points.length - 1];
-    g.append(markAt({ x: end.x + tgtDir * 14, y: end.y }, cardinalityMark(relation.cardinality), tgtDir));
+    g.append(markAt({ x: end.x + tgtDir * 14, y: end.y }, cardinalityMark(relation.cardinality), tgtDir, stroke, selected));
   }
   return g;
 }
@@ -1189,12 +1294,12 @@ function boxOf(entity: Entity) {
   };
 }
 
-function markAt(anchor: { x: number; y: number }, kind: string, dir: 1 | -1): SVGGElement {
+function markAt(anchor: { x: number; y: number }, kind: string, dir: 1 | -1, stroke = "var(--rel)", selected = false): SVGGElement {
   const g = svgEl("g", {
     transform: `translate(${anchor.x} ${anchor.y}) scale(${dir} 1)`,
-    stroke: "var(--ink)",
+    stroke,
     fill: "none",
-    "stroke-width": 1.25,
+    "stroke-width": selected ? 1.8 : 1.25,
     "stroke-linecap": "square",
     "vector-effect": "non-scaling-stroke",
   });
@@ -1211,19 +1316,19 @@ function markAt(anchor: { x: number; y: number }, kind: string, dir: 1 | -1): SV
   } else if (kind === "zero-one") {
     add("M0 0h4");
     add("M2.5 -4.5v9");
-    ring(9);
+    ring(8);
     add("M11.4 0h3");
   } else if (kind === "zero-many") {
-    add("M0 0 L6.6 -4.5");
+    add("M6.6 0 L0 -4.5");
     add("M0 0h6.6");
-    add("M0 0 L6.6 4.5");
+    add("M0 4.5 L6.6 0");
     add("M6.6 0h2");
-    ring(11.2);
+    ring(8);
     add("M13.6 0h2.2");
   } else if (kind === "one-many") {
-    add("M0 0 L7 -4.5");
+    add("M6.6 0 L0 -4.5"); 
     add("M0 0h7");
-    add("M0 0 L7 4.5");
+    add("M0 4.5 L6.6 0");
     add("M5.5 -4.5v9");
     add("M7 0h7");
   }
@@ -1638,6 +1743,22 @@ function interfaceForm(): HTMLElement {
     saveSettings();
   };
   addRow(form, t("field.minimap"), mini);
+  const gridToggle = document.createElement("input");
+  gridToggle.type = "checkbox";
+  gridToggle.checked = ui.showGrid;
+  gridToggle.onchange = () => {
+    app.settings.ui.showGrid = gridToggle.checked;
+    saveSettings();
+  };
+  addRow(form, t("field.showGrid"), gridToggle);
+  const snap = document.createElement("input");
+  snap.type = "checkbox";
+  snap.checked = ui.snapToGrid;
+  snap.onchange = () => {
+    app.settings.ui.snapToGrid = snap.checked;
+    saveSettings();
+  };
+  addRow(form, t("field.snapToGrid"), snap);
   return form;
 }
 
@@ -1772,6 +1893,7 @@ function openDetail(entityId: string, keepPage = true): void {
     if (committed) return;
     committed = true;
     if (JSON.stringify(before) !== JSON.stringify(app.doc)) {
+      app.layoutReset = null;
       app.history.pushBefore(before);
       markDirty();
     }
@@ -1869,8 +1991,8 @@ function recordForm(entity: Entity, noteLocal: () => void): HTMLElement {
   addRow(form, t("field.color"), textInput(entity.color, (v) => { noteLocal(); entity.color = v; touch(); }));
   addRow(form, t("field.schemaName"), textInput(app.doc.meta.name, (v) => { noteLocal(); app.doc.meta.name = v; touch(); }));
   addRow(form, t("field.schemaNote"), areaInput(app.doc.meta.comment, (v) => { noteLocal(); app.doc.meta.comment = v; touch(); }));
-  addRow(form, t("field.x"), numberInput(entity.position.x, -100000, 100000, (v) => { noteLocal(); entity.position.x = v; touch(); renderCanvas(); }));
-  addRow(form, t("field.y"), numberInput(entity.position.y, -100000, 100000, (v) => { noteLocal(); entity.position.y = v; touch(); renderCanvas(); }));
+  addRow(form, t("field.x"), numberInput(entity.position.x, -100000, 100000, (v) => { noteLocal(); entity.position.x = v; noteEntity(app.doc, entity); touch(); renderCanvas(); }));
+  addRow(form, t("field.y"), numberInput(entity.position.y, -100000, 100000, (v) => { noteLocal(); entity.position.y = v; noteEntity(app.doc, entity); touch(); renderCanvas(); }));
   const collapsed = document.createElement("input");
   collapsed.type = "checkbox";
   collapsed.checked = entity.collapsed;
@@ -2432,6 +2554,10 @@ interface ProbeApi {
   setLanguage(id: string): void;
   setRouting(style: EdgeRouting): void;
   load(text: string): void;
+  setLayout(id: LayoutId): void;
+  resetLayout(): void;
+  selectRelation(id: string): void;
+  nudge(entityId: string, x: number, y: number): void;
   prompt(): string;
   snapshot(): string;
   counts(): { entities: number; relations: number; warnings: number };
@@ -2443,6 +2569,7 @@ const probe: ProbeApi = {
     mutate((doc) => {
       const entity = makeEntity(typeId, app.settings.dataTypes[0]?.id ?? "", { x: 80 + doc.entities.length * 30, y: 80 }, uniqueName(doc, "entity"));
       doc.entities.push(entity);
+      noteEntity(doc, entity);
       id = entity.id;
       app.selected = new Set([id]);
     });
@@ -2490,6 +2617,28 @@ const probe: ProbeApi = {
   },
   load(text) {
     adoptText(text, "probe.schematic.json", null);
+  },
+  setLayout(id: LayoutId) {
+    switchLayout(id);
+  },
+  resetLayout() {
+    resetActiveLayout();
+  },
+  selectRelation(id: string) {
+    app.selectedRel = id;
+    app.selected.clear();
+    render();
+  },
+  nudge(entityId: string, x: number, y: number) {
+    const entity = app.doc.entities.find((item) => item.id === entityId);
+    if (!entity) return;
+    const before = clone(app.doc);
+    entity.position = { x, y };
+    noteEntity(app.doc, entity);
+    app.layoutReset = null;
+    app.history.pushBefore(before);
+    markDirty();
+    render();
   },
   prompt() {
     return schemaToPrompt(app.doc, app.settings);

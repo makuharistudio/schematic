@@ -2,6 +2,7 @@
 export const SCHEMA_KIND = "schematic.schema";
 export const SETTINGS_KIND = "schematic.settings";
 export const FORMAT_VERSION = 1;
+export const LAYOUT_IDS = ["Custom", "Hierarchical", "ForceDirected", "Circular"];
 export const CARDINALITIES = [
     "zero-or-one",
     "zero-or-many",

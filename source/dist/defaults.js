@@ -114,6 +114,8 @@ export function defaultSettings() {
             panSensitivity: 1,
             edgeRouting: "orthogonal",
             showMinimap: true,
+            showGrid: true,
+            snapToGrid: false,
         },
     };
 }
@@ -125,6 +127,13 @@ export function emptySchema(name = "untitled") {
         entities: [],
         relations: [],
         enums: [],
+        activeLayout: "Custom",
+        layouts: {
+            Custom: { positions: {} },
+            Hierarchical: { positions: {} },
+            ForceDirected: { positions: {} },
+            Circular: { positions: {} },
+        },
     };
 }
 export function makeField(dataTypeId, name = "column") {

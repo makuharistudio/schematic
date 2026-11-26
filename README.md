@@ -2,7 +2,11 @@
 
 Grok Build vibe-coded framework-free browser-based database schema designer, using single-page HTML + CSS + TypeScript only. Largely based on another project, **[ERD Editor by SeungHwan-Lee](https://github.com/dineug/erd-editor)**. This watered-down version does not interoperate with other tools like the original does. It only exports its own custom JSON and an AI prompt version of your schema. Intended as an ideation tool.
 
-The page loads the compiled modules in `source/dist/`. A browser can open `index.html` directly. Use a local server when the browser blocks module scripts on `file://`.
+This tool helps you be economic with AI token credits. Use this or a similar tool to clearly define your data points and relationships as thoroughly as possible upfront. Then submit your data schema to your AI tool to build the app around it. It is more efficient than back-and-forth changing the scheme whilst building the app, and is less at risk of unintended issues, like removing desired features.
+
+* The page loads the compiled modules in `source/dist/`.
+* A browser can open `index.html` directly.
+* Use a local server when the browser blocks module scripts on `file://`.
 
 ## Initial setup
 

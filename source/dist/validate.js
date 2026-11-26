@@ -1,4 +1,4 @@
-import { CARDINALITIES, CONSTRAINT_KINDS, FORMAT_VERSION, SCHEMA_KIND, SETTINGS_KIND } from "./types.js";
+import { CARDINALITIES, CONSTRAINT_KINDS, FORMAT_VERSION, LAYOUT_IDS, SCHEMA_KIND, SETTINGS_KIND } from "./types.js";
 export class FormatError extends Error {
     constructor(message) {
         super(message);
@@ -34,6 +34,29 @@ function routing(value) {
 }
 function constraintKind(value) {
     return CONSTRAINT_KINDS.includes(value) ? value : "other";
+}
+function layoutId(value) {
+    return LAYOUT_IDS.includes(value) ? value : "Custom";
+}
+function readPoint(value) {
+    if (!isRecord(value))
+        return null;
+    if (typeof value.x !== "number" || typeof value.y !== "number")
+        return null;
+    if (!Number.isFinite(value.x) || !Number.isFinite(value.y))
+        return null;
+    return { x: value.x, y: value.y };
+}
+function readPositions(value) {
+    if (!isRecord(value))
+        return {};
+    const positions = {};
+    for (const [id, point] of Object.entries(value)) {
+        const read = readPoint(point);
+        if (read)
+            positions[id] = read;
+    }
+    return positions;
 }
 function readNested(value, depth) {
     if (!isRecord(value) || depth > 32)
@@ -140,7 +163,18 @@ export function parseSchema(value) {
             values: Array.isArray(raw.values) ? raw.values.filter((v) => typeof v === "string") : [],
             comment: str(raw.comment),
         })),
+        activeLayout: layoutId(value.activeLayout),
+        layouts: readLayouts(value.layouts),
     };
+}
+function readLayouts(value) {
+    const raw = isRecord(value) ? value : {};
+    const layouts = {};
+    for (const id of LAYOUT_IDS) {
+        const entry = isRecord(raw[id]) ? raw[id] : {};
+        layouts[id] = { positions: readPositions(entry.positions) };
+    }
+    return layouts;
 }
 export function parseSettings(value, fallback) {
     if (!isRecord(value))
@@ -187,6 +221,8 @@ export function parseSettings(value, fallback) {
             panSensitivity: Math.min(3, Math.max(0.2, num(ui.panSensitivity, fallback.ui.panSensitivity))),
             edgeRouting: routing(ui.edgeRouting),
             showMinimap: bool(ui.showMinimap, fallback.ui.showMinimap),
+            showGrid: bool(ui.showGrid, fallback.ui.showGrid),
+            snapToGrid: bool(ui.snapToGrid, fallback.ui.snapToGrid),
         },
     };
 }

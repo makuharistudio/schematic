@@ -12,6 +12,8 @@
   --warn-ink: #1a1208;
   --danger: #ff6b5a;
   --select: #1c3148;
+  --rel: #9aa6b4;
+  --rel-select: #ffb020;
   --menu: #12161d;
   --field: #10141b;
   --check: #b9d7f2;
@@ -38,6 +40,8 @@
   --warn-ink: #ffffff;
   --danger: #9d0b0b;
   --select: #d5e3f4;
+  --rel: #3d4d60;
+  --rel-select: #c2410c;
   --menu: #ffffff;
   --field: #ffffff;
   --check: #163e72;
@@ -58,6 +62,8 @@
   --warn-ink: #1a1208;
   --danger: #ff8a78;
   --select: #1a4c96;
+  --rel: #8eb6de;
+  --rel-select: #ffb020;
   --menu: #0b1b4a;
   --field: #0a1844;
   --check: #d7ecff;
@@ -78,6 +84,8 @@
   --warn-ink: #000000;
   --danger: #ff5a36;
   --select: #003314;
+  --rel: #00ff66;
+  --rel-select: #ffe14a;
   --menu: #000000;
   --field: #000000;
   --check: #b6ff2e;
@@ -98,6 +106,8 @@
   --warn-ink: #000000;
   --danger: #ff5a36;
   --select: #00284d;
+  --rel: #4dc3ff;
+  --rel-select: #ffe14a;
   --menu: #000000;
   --field: #000000;
   --check: #bfe8ff;
@@ -118,6 +128,8 @@
   --warn-ink: #000000;
   --danger: #ff3b1f;
   --select: #331800;
+  --rel: #ff9a1f;
+  --rel-select: #ffffff;
   --menu: #000000;
   --field: #000000;
   --check: #ffd27a;
@@ -214,16 +226,32 @@ input[type="checkbox"]:checked::after {
   border-top: 1px solid var(--line);
   justify-content: flex-start;
 }
+.topbar .cluster-left,
 .topbar .cluster-right,
 .statusbar .cluster-right {
-  margin-left: auto;
   display: flex;
   align-items: stretch;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
+}
+.topbar .cluster-left {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+}
+.topbar .cluster-right,
+.statusbar .cluster-right {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+/* Stay on the first row at its content width. Shrinking the cluster early
+   wraps it while the row still has room. Once the row is full, max-width
+   sends the whole cluster to the next line, where it can wrap again. */
+.topbar .cluster-right {
+  flex: 0 0 auto;
+}
+.statusbar .cluster-right {
+  flex: 0 1 auto;
 }
 .brand {
   display: flex;
@@ -235,9 +263,15 @@ input[type="checkbox"]:checked::after {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   height: var(--bar);
-  flex: 0 0 auto;
+  /* flex-basis: auto on a wrapping flex item resolves against the container,
+     so the label claimed the full row and wrapped alone. A content basis
+     keeps it the width of the word, on the same row as New. */
+  flex: 0 0 max-content;
+  width: max-content;
+  max-width: 100%;
+  white-space: nowrap;
 }
-.tb-btn, .card-btn {
+.tb-btn, .card-btn, .tb-select {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -249,6 +283,15 @@ input[type="checkbox"]:checked::after {
   height: var(--bar);
   flex: 0 0 auto;
 }
+.tb-select { padding: 0 4px 0 6px; }
+.tb-select select {
+  height: calc(var(--bar) - 4px);
+  max-width: 148px;
+  background: transparent;
+  color: var(--ink);
+  padding: 0 2px;
+}
+.tb-btn:disabled, .tb-select:has(select:disabled) { opacity: 0.4; }
 .tb-btn:hover, .card-btn:hover, .menu-item:hover, .mini-btn:hover {
   background: var(--select);
   color: var(--accent);

@@ -65,9 +65,18 @@ Living progress log for the client-side schema designer. Update this file as fea
   ],
   "enums": [
     { "id": "enm_…", "name": "status", "values": ["active", "disabled"], "comment": "" }
-  ]
+  ],
+  "activeLayout": "Custom",
+  "layouts": {
+    "Custom": { "positions": { "ent_…": { "x": 80, "y": 80 } } },
+    "Hierarchical": { "positions": {} },
+    "ForceDirected": { "positions": {} },
+    "Circular": { "positions": {} }
+  }
 }
 ```
+
+`activeLayout` is `"Custom" | "Hierarchical" | "ForceDirected" | "Circular"`. Older files omit `layouts`; the loader fills four empty maps and copies live `entity.position` into Custom. Only entity x/y is stored per layout. Relation routing stays on the relation. The live `entity.position` always matches the active layout, so render, hit testing, and fit keep reading it.
 
 Nested field (`nested`) is `null` for a scalar, or:
 
@@ -98,12 +107,14 @@ Nested field (`nested`) is `null` for a scalar, or:
     "zoomSensitivity": 1,
     "panSensitivity": 1,
     "edgeRouting": "orthogonal",
-    "showMinimap": true
+    "showMinimap": true,
+    "showGrid": true,
+    "snapToGrid": false
   }
 }
 ```
 
-`theme` is `"light" | "dark" | "horizon" | "hc-green" | "hc-blue" | "hc-orange"`. Older files may still say `"hc"`; that loads as `hc-green`. `edgeRouting` is `"straight" | "orthogonal" | "curved"`. `ui.language` is a language id, default `en-US`.
+`theme` is `"light" | "dark" | "horizon" | "hc-green" | "hc-blue" | "hc-orange"`. Older files may still say `"hc"`; that loads as `hc-green`. `edgeRouting` is `"straight" | "orthogonal" | "curved"`. `ui.language` is a language id, default `en-US`. `showGrid` defaults to true. `snapToGrid` defaults to false. Missing booleans load from the built-in defaults, so older settings files keep the grid visible and snap off.
 
 ## Languages
 
@@ -144,6 +155,11 @@ Missing keys fall back to English, then to the key itself. The selector shows �
 - Undo removed a table added from the menu and restored the previous entity count.
 - Light, dark, and high-contrast themes render. Fit, minimap, and status zoom update.
 - The top menu and status bar stay on one row when the items fit. They wrap only when the row is too narrow. The left cluster stays first; the right cluster stays right-aligned and can wrap underneath. No horizontal scrollbar.
+- 2026-11-26: Grid and Snap sit immediately left of Select. Grid defaults on and hides the background lines. Snap defaults off. While Snap is on, a dragged entity follows the 32px grid during the drag. Turning Snap on does not move entities already on the canvas. Both preferences persist in `ui.showGrid` and `ui.snapToGrid`.
+- The top-menu right cluster uses `flex: 0 0 auto`, so it stays on the first row until the row cannot hold it, then wraps as a group. The status bar cluster still uses `flex: 0 1 auto`.
+- 2026-11-26: Layout dropdown and Reset sit immediately before Undo and Redo, inside the left cluster. Order is Layout, Reset, Undo, Redo. Custom is the default and disables Reset. Hierarchical, Force-directed, and Circular generate positions the first time they are selected and keep those positions across switches. Drag and the detail x/y fields write only the active layout. Reset re-runs that algorithm and is one undo entry. Switches made after a reset, before any other edit, are not separate history entries, so Undo returns to the layout that was reset and restores the pre-reset positions. Redo puts the reset back. Selected relations use `--rel-select` for the line and the crow’s-foot marks; unselected relations use `--rel`. Those two tokens differ in every theme.
+- The top bar is two clusters. The left cluster grows and wraps its own buttons when the row is short. The right cluster stays `flex: 0 0 auto` and drops to the next row as a group. At 1400px the bar is one row. At 720px and 480px it is two rows and the page does not scroll sideways.
+- 2026-11-26: The SCHEMATIC label uses `flex: 0 0 max-content` so it stays the width of the word and sits on the same row as New. `flex-basis: auto` was resolving against the wrapping cluster and claiming the whole row.
 
 ## Decisions
 
@@ -151,6 +167,9 @@ Missing keys fall back to English, then to the key itself. The selector shows �
 - 2026-11-25: Crow’s-foot marks are original SVGs modelled on the public geometry of erd-editor’s MIT-licensed notation icons (circle + bars + fork). No lucide assets copied.
 - 2026-11-25: IndexedDB stores the File System Access handle. Settings live in localStorage and can also be exported as the settings JSON file.
 - 2026-11-25: Relation cardinality is the notation drawn at the target (FK) end. The source (PK) end is drawn as a single bar.
+- 2026-11-26: Grid and snap share the canvas grid step of 32. Snap is applied while dragging, from each entity's position at pointer-down, so an entity that was off-grid stays there until the user moves it.
+- 2026-11-26: Four layouts. Custom is free placement. Hierarchical is a left-to-right layered tree (roots have no incoming relation; cycles get a leftover pass). Force-directed is repulsion plus attraction for a fixed 90 steps, with an extra push when boxes overlap. Circular places each connected component on a ring sized so the chord clears the tallest box. After each algorithmic layout, a separation pass enforces a 28px gap. Layered mode keeps column x. Radial mode pushes along the ring. Free mode is the fallback. Custom is not separated. Algorithms live in `source/components/layout.ts`. No runtime library.
+- 2026-11-26: Relation selection color is `--rel-select`, never `--ink` and never equal to `--rel`. Light uses burnt orange on a pale canvas; dark and Blue Horizon use amber; high-contrast green and blue use yellow; high-contrast orange uses white.
 
 ## Session notes
 

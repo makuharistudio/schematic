@@ -9,6 +9,7 @@ export type Cardinality = "zero-or-one" | "zero-or-many" | "only-one" | "one-or-
 export type ThemeId = "light" | "dark" | "horizon" | "hc-green" | "hc-blue" | "hc-orange";
 export type EdgeRouting = "straight" | "orthogonal" | "curved";
 export type ConstraintKind = "check" | "unique" | "primary" | "foreign" | "exclude" | "other";
+export type LayoutId = "Custom" | "Hierarchical" | "ForceDirected" | "Circular";
 
 export interface Point {
   x: number;
@@ -101,6 +102,11 @@ export interface SchemaMeta {
   updatedAt: string;
 }
 
+/** One layout's entity positions. Edge routing stays on each relation, not here. */
+export interface LayoutPositions {
+  positions: Record<string, Point>;
+}
+
 export interface SchemaDoc {
   kind: typeof SCHEMA_KIND;
   version: number;
@@ -108,7 +114,13 @@ export interface SchemaDoc {
   entities: Entity[];
   relations: Relation[];
   enums: EnumDef[];
+  /** Active layout. Missing on older files; treated as Custom. */
+  activeLayout?: LayoutId;
+  /** Per-layout entity positions. Missing on older files; filled from entity.position. */
+  layouts?: Record<LayoutId, LayoutPositions>;
 }
+
+export const LAYOUT_IDS: LayoutId[] = ["Custom", "Hierarchical", "ForceDirected", "Circular"];
 
 export interface DatabaseDef {
   id: string;
@@ -137,6 +149,8 @@ export interface UiPrefs {
   panSensitivity: number;
   edgeRouting: EdgeRouting;
   showMinimap: boolean;
+  showGrid: boolean;
+  snapToGrid: boolean;
 }
 
 export interface SettingsDoc {

@@ -1,11 +1,13 @@
-import { CARDINALITIES, CONSTRAINT_KINDS, FORMAT_VERSION, SCHEMA_KIND, SETTINGS_KIND } from "./types.js";
+import { CARDINALITIES, CONSTRAINT_KINDS, FORMAT_VERSION, LAYOUT_IDS, SCHEMA_KIND, SETTINGS_KIND } from "./types.js";
 import type {
   Cardinality,
   ConstraintKind,
   EdgeRouting,
   Field,
   KeyMark,
+  LayoutId,
   NestedNode,
+  Point,
   SchemaDoc,
   SettingsDoc,
   ThemeId,
@@ -54,6 +56,27 @@ function routing(value: unknown): EdgeRouting {
 
 function constraintKind(value: unknown): ConstraintKind {
   return CONSTRAINT_KINDS.includes(value as ConstraintKind) ? (value as ConstraintKind) : "other";
+}
+
+function layoutId(value: unknown): LayoutId {
+  return LAYOUT_IDS.includes(value as LayoutId) ? (value as LayoutId) : "Custom";
+}
+
+function readPoint(value: unknown): Point | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.x !== "number" || typeof value.y !== "number") return null;
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) return null;
+  return { x: value.x, y: value.y };
+}
+
+function readPositions(value: unknown): Record<string, Point> {
+  if (!isRecord(value)) return {};
+  const positions: Record<string, Point> = {};
+  for (const [id, point] of Object.entries(value)) {
+    const read = readPoint(point);
+    if (read) positions[id] = read;
+  }
+  return positions;
 }
 
 function readNested(value: unknown, depth: number): NestedNode | null {
@@ -159,7 +182,19 @@ export function parseSchema(value: unknown): SchemaDoc {
       values: Array.isArray(raw.values) ? raw.values.filter((v) => typeof v === "string") : [],
       comment: str(raw.comment),
     })),
+    activeLayout: layoutId(value.activeLayout),
+    layouts: readLayouts(value.layouts),
   };
+}
+
+function readLayouts(value: unknown): SchemaDoc["layouts"] {
+  const raw = isRecord(value) ? value : {};
+  const layouts = {} as NonNullable<SchemaDoc["layouts"]>;
+  for (const id of LAYOUT_IDS) {
+    const entry = isRecord(raw[id]) ? raw[id] : {};
+    layouts[id] = { positions: readPositions(entry.positions) };
+  }
+  return layouts;
 }
 
 export function parseSettings(value: unknown, fallback: SettingsDoc): SettingsDoc {
@@ -204,6 +239,8 @@ export function parseSettings(value: unknown, fallback: SettingsDoc): SettingsDo
       panSensitivity: Math.min(3, Math.max(0.2, num(ui.panSensitivity, fallback.ui.panSensitivity))),
       edgeRouting: routing(ui.edgeRouting),
       showMinimap: bool(ui.showMinimap, fallback.ui.showMinimap),
+      showGrid: bool(ui.showGrid, fallback.ui.showGrid),
+      snapToGrid: bool(ui.snapToGrid, fallback.ui.snapToGrid),
     },
   };
 }

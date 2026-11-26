@@ -48,6 +48,7 @@
   </svg>
   <div id="app">
     <header class="topbar">
+      <div class="cluster-left">
       <div class="brand" id="brand">SCHEMATIC</div>
       <button type="button" class="tb-btn" id="btn-new">New</button>
       <button type="button" class="tb-btn" id="btn-load">Load</button>
@@ -55,9 +56,16 @@
       <button type="button" class="tb-btn" id="btn-save-as">Save as</button>
       <button type="button" class="tb-btn" id="btn-export">Export JSON</button>
       <button type="button" class="tb-btn" id="btn-prompt">Export as prompt</button>
+      <label class="tb-select" id="layout-field">
+        <select id="layout-select" aria-label="Layout"></select>
+      </label>
+      <button type="button" class="tb-btn" id="btn-layout-reset">Reset</button>
       <button type="button" class="tb-btn" id="btn-undo">Undo</button>
       <button type="button" class="tb-btn" id="btn-redo">Redo</button>
+      </div>
       <div class="cluster-right">
+      <button type="button" class="tb-btn" id="btn-grid" title="Toggle grid" aria-pressed="true">Grid</button>
+      <button type="button" class="tb-btn" id="btn-snap" title="Toggle snap" aria-pressed="false">Snap</button>
       <button type="button" class="card-btn" id="btn-select" title="Select">SEL</button>
       <button type="button" class="card-btn" id="card-zero-or-one" title="zero or one">
         <svg viewBox="0 0 24 16"><use href="#mark-zero-one"></use></svg>

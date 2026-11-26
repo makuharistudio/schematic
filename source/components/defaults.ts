@@ -136,6 +136,8 @@ export function defaultSettings(): SettingsDoc {
       panSensitivity: 1,
       edgeRouting: "orthogonal",
       showMinimap: true,
+      showGrid: true,
+      snapToGrid: false,
     },
   };
 }
@@ -148,6 +150,13 @@ export function emptySchema(name = "untitled"): SchemaDoc {
     entities: [],
     relations: [],
     enums: [],
+    activeLayout: "Custom",
+    layouts: {
+      Custom: { positions: {} },
+      Hierarchical: { positions: {} },
+      ForceDirected: { positions: {} },
+      Circular: { positions: {} },
+    },
   };
 }
 
