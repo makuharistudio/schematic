@@ -2,6 +2,8 @@
 
 Browser-based data schema designer, using single-page HTML + CSS + TypeScript (Grok Build vibe-coded and framework-free).
 
+![Schematic](./preview/img-2026-11-schematic)
+
 
 
 ## Overview
